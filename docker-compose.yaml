@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    image: insurance
+    container_name: insurance-app
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www/
+      - ./docker-compose/xdebug/xdebug.ini:/usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
+      - ./docker-compose/xdebug/error_reporting.ini:/usr/local/etc/php/conf.d/error_reporting.ini
+    networks:
+      - insurance-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  redis:
+    image: "redis:7.0.2"
+    restart: 'always'
+    ports:
+      - '6379:6379'
+    command: redis-server --save 20 1 --loglevel warning
+    networks:
+      - insurance-network
+  nginx:
+    image: nginx:1.23.1
+    container_name: insurance-nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/
+      - ./docker-compose/nginx:/etc/nginx/conf.d
+      #- /var/www/vendor/
+    networks:
+      - insurance-network
+  mariadb:
+    image: "mariadb:10.6.8"
+    container_name: insurance-mariadb
+    restart: 'unless-stopped'
+    volumes:
+      # - /var/lib/mysql/data:/var/lib/mysql
+      # - /var/docker/mariadb/conf:/etc/mysql
+      - ./docker-compose/mariadb/data:/var/lib/mysql
+      - ./docker-compose/mariadb/conf:/etc/mysql
+    ports:
+      - '3306:3306'
+    user: root
+    environment:
+      MYSQL_DATABASE: ${DB_DATABASE}
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: "administratorpass"
+    networks:
+      - insurance-network
+
+networks:
+  insurance-network:
+    driver: bridge
